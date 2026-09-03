@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhotoCheck AI - Detección Anti-Fraude</title>
+
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --bg-body: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+
+            --risk-low-bg: #dcfce7;
+            --risk-low-text: #166534;
+            --risk-low-border: #86efac;
+
+            --risk-med-bg: #fef3c7;
+            --risk-med-text: #92400e;
+            --risk-med-border: #fcd34d;
+
+            --risk-high-bg: #fee2e2;
+            --risk-high-text: #991b1b;
+            --risk-high-border: #fca5a5;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            line-height: 1.5;
+            padding: 30px 15px;
+        }
+
+        .contenedor { max-width: 880px; margin: 0 auto; }
+        .encabezado { text-align: center; margin-bottom: 30px; }
+        .encabezado h1 { font-size: 2.2rem; font-weight: 800; color: #1e293b; letter-spacing: -0.02em; }
+        .encabezado h1 span { color: var(--primary); }
+        .encabezado p { color: var(--text-muted); font-size: 1rem; margin-top: 6px; }
+
+        .tarjeta {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 28px;
+            margin-bottom: 24px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        .tarjeta h2 { font-size: 1.25rem; font-weight: 700; margin-bottom: 20px; color: #1e293b; display: flex; align-items: center; gap: 8px; }
+        .grupo { margin-bottom: 20px; }
+        .grupo label { display: block; font-size: 0.875rem; font-weight: 600; margin-bottom: 6px; color: #334155; }
+
+        .grupo input[type="text"], .grupo input[type="file"] {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            font-size: 0.95rem;
+            background: #f8fafc;
+            transition: all 0.2s ease;
+        }
+
+        .grupo input[type="text"]:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: #ffffff;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        }
+
+        .grupo small { display: block; margin-top: 5px; font-size: 0.8rem; color: var(--text-muted); }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+        button.btn-submit {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            background: var(--primary);
+            color: white;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s ease;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+        }
+
+        button.btn-submit:hover { background: var(--primary-hover); }
+        button.btn-submit:disabled { background: #94a3b8; cursor: not-allowed; box-shadow: none; }
+
+        .cargando { margin-top: 16px; padding: 14px; text-align: center; background: #eff6ff; color: #1e40af; border-radius: 10px; font-weight: 600; font-size: 0.9rem; }
+        .error { margin-top: 16px; padding: 14px; background: #fef2f2; color: #991b1b; border-radius: 10px; border: 1px solid #fecaca; font-size: 0.9rem; }
+
+        .caja-resultado { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; border-radius: 12px; margin-bottom: 24px; border: 1px solid transparent; }
+        .caja-resultado.riesgo-bajo { background-color: var(--risk-low-bg); color: var(--risk-low-text); border-color: var(--risk-low-border); }
+        .caja-resultado.riesgo-medio { background-color: var(--risk-med-bg); color: var(--risk-med-text); border-color: var(--risk-med-border); }
+        .caja-resultado.riesgo-alto { background-color: var(--risk-high-bg); color: var(--risk-high-text); border-color: var(--risk-high-border); }
+
+        .riesgo-info h3 { font-size: 1.5rem; font-weight: 800; }
+        .riesgo-info p { font-size: 0.95rem; font-weight: 600; opacity: 0.9; }
+
+        .badge-fraude {
+            background: #dc2626;
+            color: #ffffff;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 800;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+
+        .detalles-tabla { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+        .detalles-tabla tr { border-bottom: 1px solid var(--border-color); }
+        .detalles-tabla td { padding: 12px 0; font-size: 0.9rem; }
+        .detalles-tabla td.label { font-weight: 700; color: #475569; width: 45%; }
+        .detalles-tabla td.val { font-weight: 600; color: #0f172a; }
+        .highlight-alert { color: #dc2626 !important; font-weight: 800 !important; }
+
+        .motivos { margin-top: 20px; }
+        .motivos h3 { font-size: 1rem; font-weight: 700; margin-bottom: 12px; }
+        .motivos ul { list-style: none; padding-left: 0; }
+        .motivos li { padding: 10px 14px; background: #f8fafc; border-radius: 8px; margin-bottom: 8px; font-size: 0.875rem; border-left: 4px solid var(--primary); color: #334155; }
+
+        .recomendacion-caja { margin-top: 24px; padding: 18px; background: #f1f5f9; border-radius: 12px; border: 1px solid #cbd5e1; }
+        .recomendacion-caja h3 { font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; color: #475569; margin-bottom: 6px; }
+        .recomendacion-caja p { font-size: 1rem; font-weight: 700; color: #0f172a; }
+
+        .oculto { display: none !important; }
+
+        .login-card { max-width: 380px; margin: 80px auto 0; }
+
+        .barra-usuario {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+
+        .btn-logout {
+            border: 1px solid var(--border-color);
+            background: white;
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .btn-logout:hover { background: #f1f5f9; }
+
+        @media (max-width: 640px) {
+            .grid-2 { grid-template-columns: 1fr; }
+            .caja-resultado { flex-direction: column; align-items: flex-start; gap: 12px; }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="contenedor">
+        <section id="seccionLogin" class="tarjeta login-card">
+            <h2>🔐 Iniciar sesión</h2>
+            <form id="formularioLogin">
+                <div class="grupo">
+                    <label for="loginUsername">Usuario</label>
+                    <input type="text" id="loginUsername" required>
+                </div>
+                <div class="grupo">
+                    <label for="loginPassword">Contraseña</label>
+                    <input type="password" id="loginPassword" required>
+                </div>
+                <button type="submit" class="btn-submit">Ingresar</button>
+            </form>
+            <div id="loginError" class="error oculto"></div>
+        </section>
+
+        <div id="contenidoPrincipal" class="oculto">
+        <div class="barra-usuario">
+            <span id="usuarioActivo"></span>
+            <button id="botonLogout" class="btn-logout">Cerrar sesión</button>
+        </div>
+
+        <header class="encabezado">
+            <h1>PhotoCheck <span>AI</span></h1>
+            <p>Motor de verificación de evidencia fotográfica e inspección anti-fraude</p>
+        </header>
+
+        <section class="tarjeta">
+            <h2>📸 Analizar Fotografía de Servicio</h2>
+
+            <form id="formularioAnalisis">
+                <div class="grupo">
+                    <label for="file">Fotografía de Evidencia</label>
+                    <input type="file" id="file" name="file" accept=".jpg,.jpeg,.png,.webp,.jfif" required>
+                    <small>Formatos admitidos: JPG, PNG, WEBP, JFIF</small>
+                </div>
+
+                <div class="grid-2">
+                    <div class="grupo">
+                        <label for="apartment">Apartamento Inmueble</label>
+                        <input type="text" id="apartment" name="apartment" placeholder="Ej: A-101" required>
+                    </div>
+
+                    <div class="grupo">
+                        <label for="date">Fecha Declarada del Trabajo</label>
+                        <input type="text" id="date" name="date" placeholder="DD/MM/AAAA" required>
+                        <small>Ejemplo: 24/08/2026</small>
+                    </div>
+                </div>
+
+                <div class="grupo">
+                    <label for="notes">Novedad Reportada (opcional)</label>
+                    <input type="text" id="notes" name="notes" placeholder="Ej: Se encontró una fuga de agua debajo del lavamanos">
+                    <small>Si escribes una novedad, la IA la clasificará automáticamente (categoría y prioridad)</small>
+                </div>
+
+                <button type="submit" id="botonAnalizar" class="btn-submit">⚡ Analizar Fotografía</button>
+            </form>
+
+            <div id="cargando" class="cargando oculto">🔄 Extrayendo metadatos EXIF y evaluando coincidencia visual...</div>
+            <div id="error" class="error oculto"></div>
+        </section>
+
+        <section id="seccionResultado" class="tarjeta oculto">
+            <h2>📊 Diagnóstico y Nivel de Riesgo</h2>
+
+            <div id="cajaResultado" class="caja-resultado">
+                <div class="riesgo-info">
+                    <h3 id="nivelRiesgo">BAJO</h3>
+                    <p id="puntajeRiesgo">Puntaje: 0 / 100</p>
+                </div>
+                <div id="badgeFraudeCruzado" class="badge-fraude oculto">🚨 Fraude Cruzado</div>
+            </div>
+
+            <table class="detalles-tabla">
+                <tr><td class="label">Archivo Analizado:</td><td class="val" id="archivoResultado">-</td></tr>
+                <tr><td class="label">Apartamento Declarado:</td><td class="val" id="apartamentoResultado">-</td></tr>
+                <tr><td class="label">Inmueble Coincidente:</td><td class="val" id="apartamentoCoincidente">-</td></tr>
+                <tr><td class="label">Fotografía Histórica:</td><td class="val" id="fotoCoincidente">-</td></tr>
+                <tr><td class="label">Método de Análisis:</td><td class="val" id="metodoComparacion">-</td></tr>
+                <tr><td class="label">Similitud Visual:</td><td class="val" id="similitudVisual">0%</td></tr>
+                <tr><td class="label">Fecha Cámara (EXIF):</td><td class="val" id="fechaExif">No detectada</td></tr>
+                <tr><td class="label">Días Antigüedad Histórica:</td><td class="val" id="diasAnterior">-</td></tr>
+                <tr id="filaNovedad" class="oculto"><td class="label">🧠 Novedad Clasificada:</td><td class="val" id="novedadClasificada">-</td></tr>
+            </table>
+
+            <div class="motivos">
+                <h3>🔍 Factores Identificados por la API:</h3>
+                <ul id="listaMotivos"><li>No hay observaciones.</li></ul>
+            </div>
+
+            <div class="recomendacion-caja">
+                <h3>Recomendación para Supervisión</h3>
+                <p id="recomendacion">Sin observaciones.</p>
+            </div>
+        </section>
+        </div>
+    </div>
+
+    <script>
+        const formulario = document.getElementById("formularioAnalisis");
+        const cargando = document.getElementById("cargando");
+        const error = document.getElementById("error");
+        const seccionResultado = document.getElementById("seccionResultado");
+        const botonAnalizar = document.getElementById("botonAnalizar");
+
+        formulario.addEventListener("submit", async function (evento) {
+            evento.preventDefault();
+            error.classList.add("oculto");
+            seccionResultado.classList.add("oculto");
+            cargando.classList.remove("oculto");
+            botonAnalizar.disabled = true;
+            botonAnalizar.textContent = "Procesando...";
+
+            try {
+                const formData = new FormData();
+                formData.append("file", document.getElementById("file").files[0]);
+                formData.append("apartment", document.getElementById("apartment").value.trim());
+                formData.append("date", document.getElementById("date").value.trim());
+                formData.append("notes", document.getElementById("notes").value.trim());
+
+                const response = await fetch("http://127.0.0.1:8000/analyze", {
+                    method: "POST",
+                    headers: { Authorization: `Bearer ${sessionStorage.getItem("photocheck_token")}` },
+                    body: formData,
+                });
+                const resultado = await response.json();
+
+                if (!response.ok) throw new Error(resultado.detail || resultado.message || "Error al procesar la imagen.");
+                mostrarResultado(resultado);
+            } catch (err) {
+                console.error("Error en la llamada:", err);
+                error.textContent = "⚠️ Error al consultar la API: " + err.message;
+                error.classList.remove("oculto");
+            } finally {
+                cargando.classList.add("oculto");
+                botonAnalizar.disabled = false;
+                botonAnalizar.textContent = "⚡ Analizar Fotografía";
+            }
+        });
+
+        function mostrarResultado(resultado) {
+            const nivelRiesgo = resultado.nivel_riesgo || "BAJO";
+            const puntajeRiesgo = resultado.puntaje_riesgo ?? 0;
+
+            const cajaResultado = document.getElementById("cajaResultado");
+            cajaResultado.className = "caja-resultado";
+            if (nivelRiesgo === "ALTO") cajaResultado.classList.add("riesgo-alto");
+            else if (nivelRiesgo === "MEDIO") cajaResultado.classList.add("riesgo-medio");
+            else cajaResultado.classList.add("riesgo-bajo");
+
+            document.getElementById("nivelRiesgo").textContent = `RIESGO ${nivelRiesgo}`;
+            document.getElementById("puntajeRiesgo").textContent = `Puntaje Final: ${puntajeRiesgo} / 100`;
+
+            const badgeFraude = document.getElementById("badgeFraudeCruzado");
+            if (resultado.fraude_cruzado) badgeFraude.classList.remove("oculto");
+            else badgeFraude.classList.add("oculto");
+
+            document.getElementById("archivoResultado").textContent = resultado.archivo || "-";
+            document.getElementById("apartamentoResultado").textContent = resultado.apartamento || "-";
+
+            const elAptoCoincidente = document.getElementById("apartamentoCoincidente");
+            elAptoCoincidente.textContent = resultado.apartamento_coincidente || "Mismo inmueble";
+            if (resultado.fraude_cruzado) elAptoCoincidente.classList.add("highlight-alert");
+            else elAptoCoincidente.classList.remove("highlight-alert");
+
+            document.getElementById("fotoCoincidente").textContent = resultado.foto_coincidente || "Ninguna (Foto Única)";
+            document.getElementById("metodoComparacion").textContent = resultado.metodo_comparacion || "-";
+            document.getElementById("similitudVisual").textContent = `${resultado.similitud_visual ?? 0}%`;
+
+            const elFechaExif = document.getElementById("fechaExif");
+            if (resultado.fecha_exif) {
+                elFechaExif.textContent = `${resultado.fecha_exif} ${resultado.discrepancia_exif_dias > 1 ? `(⚠️ ${resultado.discrepancia_exif_dias} días de discrepancia)` : '✅'}`;
+            } else {
+                elFechaExif.textContent = "Sin metadatos EXIF";
+            }
+
+            document.getElementById("diasAnterior").textContent = resultado.dias_desde_foto_anterior !== null && resultado.dias_desde_foto_anterior !== undefined
+                ? `${resultado.dias_desde_foto_anterior} día(s)` : "N/A";
+
+            const filaNovedad = document.getElementById("filaNovedad");
+            if (resultado.novedad_categoria) {
+                document.getElementById("novedadClasificada").textContent =
+                    `${resultado.novedad_categoria} · Prioridad ${resultado.novedad_prioridad} — "${resultado.novedad_resumen}"`;
+                filaNovedad.classList.remove("oculto");
+            } else {
+                filaNovedad.classList.add("oculto");
+            }
+
+            const listaMotivos = document.getElementById("listaMotivos");
+            listaMotivos.innerHTML = "";
+            if (resultado.motivos && resultado.motivos.length > 0) {
+                resultado.motivos.forEach(motivo => {
+                    const li = document.createElement("li");
+                    li.textContent = motivo;
+                    listaMotivos.appendChild(li);
+                });
+            } else {
+                const li = document.createElement("li");
+                li.textContent = "No se encontraron factores de riesgo adicionales.";
+                listaMotivos.appendChild(li);
+            }
+
+            document.getElementById("recomendacion").textContent = resultado.recomendacion || "Aprobar servicio.";
+            seccionResultado.classList.remove("oculto");
+            seccionResultado.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+
+        // =====================================================================
+        // AUTENTICACIÓN (login / logout / proteger el formulario)
+        // =====================================================================
+        const API_BASE = "http://127.0.0.1:8000";
+        const seccionLogin = document.getElementById("seccionLogin");
+        const contenidoPrincipal = document.getElementById("contenidoPrincipal");
+        const formularioLogin = document.getElementById("formularioLogin");
+        const loginError = document.getElementById("loginError");
+        const usuarioActivo = document.getElementById("usuarioActivo");
+        const botonLogout = document.getElementById("botonLogout");
+
+        function getToken() {
+            return sessionStorage.getItem("photocheck_token");
+        }
+
+        function mostrarApp() {
+            seccionLogin.classList.add("oculto");
+            contenidoPrincipal.classList.remove("oculto");
+            const nombre = sessionStorage.getItem("photocheck_name") || sessionStorage.getItem("photocheck_username");
+            const rol = sessionStorage.getItem("photocheck_role");
+            usuarioActivo.textContent = `👤 ${nombre} (${rol})`;
+        }
+
+        function mostrarLogin() {
+            seccionLogin.classList.remove("oculto");
+            contenidoPrincipal.classList.add("oculto");
+        }
+
+        formularioLogin.addEventListener("submit", async function (evento) {
+            evento.preventDefault();
+            loginError.classList.add("oculto");
+
+            const username = document.getElementById("loginUsername").value.trim();
+            const password = document.getElementById("loginPassword").value;
+
+            const body = new URLSearchParams();
+            body.append("username", username);
+            body.append("password", password);
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                    body,
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.detail || "Usuario o contraseña incorrectos.");
+
+                sessionStorage.setItem("photocheck_token", data.access_token);
+                sessionStorage.setItem("photocheck_role", data.role);
+                sessionStorage.setItem("photocheck_username", username);
+                sessionStorage.setItem("photocheck_name", data.full_name || username);
+                mostrarApp();
+            } catch (err) {
+                loginError.textContent = "⚠️ " + err.message;
+                loginError.classList.remove("oculto");
+            }
+        });
+
+        botonLogout.addEventListener("click", function () {
+            sessionStorage.clear();
+            mostrarLogin();
+        });
+
+        // Si ya había una sesión guardada (recargaste la página), entra directo
+        if (getToken()) {
+            mostrarApp();
+        }
+    </script>
+</body>
+</html>
